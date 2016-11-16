@@ -19,16 +19,33 @@ enum AuthStrategy {
 class Authorizer extends RequestController {
   /// Creates an instance of [Authorizer] with a reference back to its [server] and a [strategy].
   ///
-  /// The default strategy is [AuthStrategy.resourceOwner].
-  Authorizer(this.server, {this.strategy: AuthStrategy.resourceOwner}) {
+  /// The default strategy is [AuthStrategy.resourceOwner]. By default, [acceptableClientIDs] is null and therefore all client IDs are accepted
+  /// when [strategy] is [AuthStrategy.client].
+  Authorizer(this.server, {this.strategy: AuthStrategy.resourceOwner, this.acceptableClientIDs: null}) {
     policy = null;
   }
+
+  /// Creates an instance of [Authorizer] with [AuthStrategy.resourceOwner].
+  Authorizer.resourceOwner(AuthServer server) : this(server, strategy: AuthStrategy.resourceOwner);
+
+  /// Creates an instance of [Authorizer] with [AuthStrategy.client].
+  ///
+  /// [acceptOnly] will set the [acceptableClientIDs] of this instance.
+  Authorizer.client(AuthServer server, {List<String> acceptOnly: null}) : this(server, strategy: AuthStrategy.client, acceptableClientIDs: acceptOnly);
 
   /// A reference to the [AuthServer] for which this [Authorizer] belongs to.
   AuthServer server;
 
   /// The [AuthStrategy] for authenticating a request.
   AuthStrategy strategy;
+
+  /// The list of acceptable client IDs for client strategy authorizers.
+  ///
+  /// By default, this value is null and therefore accepts all client IDs. By setting this value to
+  /// a specific set of case-sensitive client IDs, only requests with matching a client ID in
+  /// their Authorization header may pass through this instance. This value has no impact on
+  /// instances where [strategy] is [AuthStrategy.resourceOwner].
+  List<String> acceptableClientIDs;
 
   @override
   Future<RequestControllerEvent> processRequest(Request req) async {
@@ -67,8 +84,12 @@ class Authorizer extends RequestController {
 
   Future<RequestControllerEvent> _processClientRequest(Request req) async {
     var parser = AuthorizationBasicParser.parse(req.innerRequest.headers.value(HttpHeaders.AUTHORIZATION));
-    var client = await server.clientForID(parser.username);
 
+    if (acceptableClientIDs != null && !acceptableClientIDs.contains(parser.username)) {
+      return new Response.unauthorized();
+    }
+
+    var client = await server.clientForID(parser.username);
     if (client == null) {
       return new Response.unauthorized();
     }
