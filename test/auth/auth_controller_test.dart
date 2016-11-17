@@ -64,13 +64,13 @@ void main() {
     req = client.request("/auth/token")
       ..headers = {"Authorization" : "foobar"}
       ..formData = m;
-    expect(await req.post(), hasStatus(400), reason: "omit 'Basic'");
+    expect(await req.post(), hasStatus(401), reason: "omit 'Basic'");
 
     // Non-base64 data
     req = client.request("/auth/token")
       ..headers = {"Authorization" : "Basic bad"}
       ..formData = m;
-    expect(await req.post(), hasStatus(400), reason: "Non-base64 data");
+    expect(await req.post(), hasStatus(401), reason: "Non-base64 data");
 
     // Wrong thing
     req = client.clientAuthenticatedRequest("/auth/token", clientID: "foobar")
