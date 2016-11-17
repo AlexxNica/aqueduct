@@ -61,40 +61,76 @@ void main() {
     expect(uri.path, equals("/auth/redirect"));
   });
 
-  test("POST fails on bad client data", () async {
-    // Omit client_id
+  test("POST fails because client doesn't have a redirect URI", () async {
+    var req = client.clientAuthenticatedRequest("/auth/code")
+      ..formData = {
+        "client_id" : "com.stablekernel.app1",
+        "username" : "bob+0@stablekernel.com",
+        "password" : "foobaraxegrind21%",
+      };
+    var res = await req.post();
+    expect(res, hasStatus(400));
+  });
+
+  test("POST fails if client identifier is missing", () async {
     var req = client.request("/auth/code")
       ..formData = {
         "username" : "bob+0@stablekernel.com",
         "password" : "foobaraxegrind21%"
       };
-    expect(await req.post(), hasStatus(400));
 
-    // Bad client_id
-    req = client.request("/auth/code")
+    var res = await req.post();
+    expect(res, hasStatus(400));
+    expect(res.headers.value(HttpHeaders.LOCATION), isNull);
+  });
+
+  test("POST fails if client identifier is invalid", () async {
+    var req = client.request("/auth/code")
       ..formData = {
         "client_id" : "com.stablekpp3",
         "username" : "bob+0@stablekernel.com",
         "password" : "foobaraxegrind21%"
       };
-    expect(await req.post(), hasStatus(401));
 
+    var res = await req.post();
+    expect(res, hasStatus(400));
+    expect(res.headers.value(HttpHeaders.LOCATION), isNull);
+  });
+
+  test("POST fails because required parameter is omitted", () async {
     // Omit username
-    req = client.request("/auth/code")
+    var req = client.request("/auth/code")
       ..formData = {
         "client_id" : "com.stablekernel.app3",
         "password" : "foobaraxegrind21%"
       };
-    expect(await req.post(), hasStatus(400));
+    var res = await req.post();
+    expect(res, hasStatus(HttpStatus.MOVED_TEMPORARILY));
+    var location = res.headers.value(HttpHeaders.LOCATION);
+    var uri = Uri.parse(location);
 
-    // Bad username
+    expect(uri.queryParameters["code"], isNull);
+    expect(uri.queryParameters["state"], isNull);
+    expect(uri.queryParameters["error"], equals("invalid_request"));
+    expect(uri.host, equals("stablekernel.com"));
+    expect(uri.path, equals("/auth/redirect"));
+
     req = client.request("/auth/code")
       ..formData = {
         "client_id" : "com.stablekernel.app3",
-        "username" : "bob+0@stcom",
-        "password" : "foobaraxegrind21%"
+        "password" : "foobaraxegrind21%",
+        "state" : "Alaska"
       };
-    expect(await req.post(), hasStatus(400));
+    res = await req.post();
+    expect(res, hasStatus(HttpStatus.MOVED_TEMPORARILY));
+    location = res.headers.value(HttpHeaders.LOCATION);
+    uri = Uri.parse(location);
+
+    expect(uri.queryParameters["code"], isNull);
+    expect(uri.queryParameters["state"], equals("Alaska"));
+    expect(uri.queryParameters["error"], equals("invalid_request"));
+    expect(uri.host, equals("stablekernel.com"));
+    expect(uri.path, equals("/auth/redirect"));
 
     // Omit password
     req = client.request("/auth/code")
@@ -102,7 +138,130 @@ void main() {
         "client_id" : "com.stablekernel.app3",
         "username" : "bob+0@stablekernel.com",
       };
-    expect(await req.post(), hasStatus(400));
+    res = await req.post();
+    expect(res, hasStatus(HttpStatus.MOVED_TEMPORARILY));
+    location = res.headers.value(HttpHeaders.LOCATION);
+    uri = Uri.parse(location);
+
+    expect(uri.queryParameters["code"], isNull);
+    expect(uri.queryParameters["state"], isNull);
+    expect(uri.queryParameters["error"], equals("invalid_request"));
+    expect(uri.host, equals("stablekernel.com"));
+    expect(uri.path, equals("/auth/redirect"));
+
+    req = client.request("/auth/code")
+      ..formData = {
+        "client_id" : "com.stablekernel.app3",
+        "username" : "bob+0@stablekernel.com",
+        "state" : "Alaska"
+      };
+    res = await req.post();
+    expect(res, hasStatus(HttpStatus.MOVED_TEMPORARILY));
+    location = res.headers.value(HttpHeaders.LOCATION);
+    uri = Uri.parse(location);
+
+    expect(uri.queryParameters["code"], isNull);
+    expect(uri.queryParameters["state"], equals("Alaska"));
+    expect(uri.queryParameters["error"], equals("invalid_request"));
+    expect(uri.host, equals("stablekernel.com"));
+    expect(uri.path, equals("/auth/redirect"));
+  });
+
+  test("POST fails because parameter value is included more than once", () async {
+    // Include username twice
+    var req = client.request("/auth/code")
+      ..contentType = new ContentType("application", "x-www-form-urlencoded")
+      ..body = "client_id=com.stablekernel.app3&username=abcd&password=abc&username=abcd";
+
+    var res = await req.post();
+    expect(res, hasStatus(HttpStatus.MOVED_TEMPORARILY));
+    var location = res.headers.value(HttpHeaders.LOCATION);
+    var uri = Uri.parse(location);
+
+    expect(uri.queryParameters["code"], isNull);
+    expect(uri.queryParameters["state"], isNull);
+    expect(uri.queryParameters["error"], equals("invalid_request"));
+    expect(uri.host, equals("stablekernel.com"));
+    expect(uri.path, equals("/auth/redirect"));
+
+    // Include client_id twice
+    req = client.request("/auth/code")
+      ..contentType = new ContentType("application", "x-www-form-urlencoded")
+      ..body = "client_id=com.stablekernel.app3&username=abcd&password=abc&client_id=abcd&state=bar";
+
+    res = await req.post();
+    expect(res, hasStatus(HttpStatus.BAD_REQUEST));
+    expect(res.headers.value(HttpHeaders.LOCATION), isNull);
+
+    // Include password twice
+    req = client.request("/auth/code")
+      ..contentType = new ContentType("application", "x-www-form-urlencoded")
+      ..body = "client_id=com.stablekernel.app3&username=abcd&password=abc&password=abcd";
+
+    res = await req.post();
+    expect(res, hasStatus(HttpStatus.MOVED_TEMPORARILY));
+    location = res.headers.value(HttpHeaders.LOCATION);
+    uri = Uri.parse(location);
+
+    expect(uri.queryParameters["code"], isNull);
+    expect(uri.queryParameters["state"], isNull);
+    expect(uri.queryParameters["error"], equals("invalid_request"));
+    expect(uri.host, equals("stablekernel.com"));
+    expect(uri.path, equals("/auth/redirect"));
+
+    // Include state twice
+    req = client.request("/auth/code")
+      ..contentType = new ContentType("application", "x-www-form-urlencoded")
+      ..body = "client_id=com.stablekernel.app3&username=abcd&password=abc&state=abcd&state=foo";
+
+    res = await req.post();
+    expect(res, hasStatus(HttpStatus.MOVED_TEMPORARILY));
+    location = res.headers.value(HttpHeaders.LOCATION);
+    uri = Uri.parse(location);
+
+    expect(uri.queryParameters["code"], isNull);
+    expect(uri.queryParameters["state"], equals("abcd"));
+    expect(uri.queryParameters["error"], equals("invalid_request"));
+    expect(uri.host, equals("stablekernel.com"));
+    expect(uri.path, equals("/auth/redirect"));
+  });
+
+  test("POST fails because access is denied", () async {
+    // Bad username
+    var req = client.request("/auth/code")
+      ..formData = {
+        "client_id" : "com.stablekernel.app3",
+        "username" : "bob+0@stcom",
+        "password" : "foobaraxegrind21%"
+      };
+    var res = await req.post();
+    expect(res, hasStatus(HttpStatus.MOVED_TEMPORARILY));
+    var location = res.headers.value(HttpHeaders.LOCATION);
+    var uri = Uri.parse(location);
+
+    expect(uri.queryParameters["code"], isNull);
+    expect(uri.queryParameters["state"], isNull);
+    expect(uri.queryParameters["error"], equals("access_denied"));
+    expect(uri.host, equals("stablekernel.com"));
+    expect(uri.path, equals("/auth/redirect"));
+
+    req = client.request("/auth/code")
+      ..formData = {
+        "client_id" : "com.stablekernel.app3",
+        "username" : "bob+0@stcom",
+        "password" : "foobaraxegrind21%",
+        "state" : "Alaska"
+      };
+    res = await req.post();
+    expect(res, hasStatus(HttpStatus.MOVED_TEMPORARILY));
+    location = res.headers.value(HttpHeaders.LOCATION);
+    uri = Uri.parse(location);
+
+    expect(uri.queryParameters["code"], isNull);
+    expect(uri.queryParameters["state"], equals("Alaska"));
+    expect(uri.queryParameters["error"], equals("access_denied"));
+    expect(uri.host, equals("stablekernel.com"));
+    expect(uri.path, equals("/auth/redirect"));
 
     // Bad password
     req = client.request("/auth/code")
@@ -111,7 +270,34 @@ void main() {
         "username" : "bob+0@stablekernel.com",
         "password" : "fooba%"
       };
-    expect(await req.post(), hasStatus(401));
+    res = await req.post();
+    expect(res, hasStatus(HttpStatus.MOVED_TEMPORARILY));
+    location = res.headers.value(HttpHeaders.LOCATION);
+    uri = Uri.parse(location);
+
+    expect(uri.queryParameters["code"], isNull);
+    expect(uri.queryParameters["state"], isNull);
+    expect(uri.queryParameters["error"], equals("access_denied"));
+    expect(uri.host, equals("stablekernel.com"));
+    expect(uri.path, equals("/auth/redirect"));
+
+    req = client.request("/auth/code")
+      ..formData = {
+        "client_id" : "com.stablekernel.app3",
+        "username" : "bob+0@stablekernel.com",
+        "password" : "fooba%",
+        "state" : "Alaska"
+      };
+    res = await req.post();
+    expect(res, hasStatus(HttpStatus.MOVED_TEMPORARILY));
+    location = res.headers.value(HttpHeaders.LOCATION);
+    uri = Uri.parse(location);
+
+    expect(uri.queryParameters["code"], isNull);
+    expect(uri.queryParameters["state"], equals("Alaska"));
+    expect(uri.queryParameters["error"], equals("access_denied"));
+    expect(uri.host, equals("stablekernel.com"));
+    expect(uri.path, equals("/auth/redirect"));
   });
 
   test("POST exchange auth code for token", () async {

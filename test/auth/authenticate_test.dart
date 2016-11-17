@@ -30,40 +30,6 @@ void main() {
     expect(permission.resourceOwnerIdentifier, createdUser.id);
   });
 
-  test("Generate auth code with bad user data fails", () async {
-    var auth = new AuthServer<TestUser, Token, AuthCode>(delegate);
-    await createUsers(1);
-
-    var successful = false;
-    try {
-      // Bad username
-      await auth.createAuthCode("bob+0@stable", "foobaraxegrind21%","com.stablekernel.app3");
-      successful = true;
-    } catch (e) {
-      expect(e.statusCode, HttpStatus.BAD_REQUEST);
-    }
-    expect(successful, false);
-
-    try {
-      // Bad password
-      await auth.createAuthCode("bob+0@stablekernel.com", "foobaraxegri%","com.stablekernel.app3");
-      successful = true;
-    } catch (e) {
-      expect(e.statusCode, HttpStatus.UNAUTHORIZED);
-    }
-    expect(successful, false);
-
-    try {
-      // Bad client id
-      await auth.createAuthCode("bob+0@stablekernel.com", "foobaraxegrind21%","com.stabl");
-      successful = true;
-    } catch (e) {
-      expect(e.statusCode, HttpStatus.UNAUTHORIZED);
-    }
-    expect(successful, false);
-
-  });
-
   test("Exchange auth code for token", () async {
     var auth = new AuthServer<TestUser, Token, AuthCode>(delegate);
     TestUser createdUser = (await createUsers(1)).first;
@@ -144,19 +110,6 @@ void main() {
       expect(e.statusCode, HttpStatus.UNAUTHORIZED);
     }
     expect(token, isNull);
-  });
-
-  test("Auth code generation fails when client has no redirect URI", () async {
-    await createUsers(1);
-    var auth = new AuthServer<TestUser, Token, AuthCode>(delegate);
-
-    var authCode = null;
-    try {
-      authCode = await auth.createAuthCode("bob+0@stablekernel.com", "foobaraxegrind21%", "com.stablekernel.app1");
-    } catch (e) {
-      expect(e.statusCode, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-    expect(authCode, isNull);
   });
 
   test("Generate and verify token", () async {

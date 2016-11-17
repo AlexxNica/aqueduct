@@ -10,10 +10,10 @@ class AuthorizationBearerParser {
       throw new HTTPResponseException(401, "No authorization header.");
     }
 
-    var matcher = new RegExp("Bearer (.*)");
+    var matcher = new RegExp("Bearer (.+)");
     var match = matcher.firstMatch(authorizationHeader);
     if (match == null) {
-      throw new HTTPResponseException(400, "Improper authorization header.");
+      throw new HTTPResponseException(401, "Improper authorization header.");
     }
     return match[1];
   }
@@ -36,10 +36,14 @@ class AuthorizationBasicParser {
   /// was 'Authorization: Basic base64String' it would decode the base64String
   /// and return the username and password by splitting that decoded string around the character ':'.
   static AuthorizationBasicElements parse(String authorizationHeader) {
-    var matcher = new RegExp("Basic (.*)");
+    if (authorizationHeader == null) {
+      throw new HTTPResponseException(401, "No authorization header.");
+    }
+
+    var matcher = new RegExp("Basic (.+)");
     var match = matcher.firstMatch(authorizationHeader);
     if (match == null) {
-      throw new HTTPResponseException(400, "Improper authorization header.");
+      throw new HTTPResponseException(401, "Improper authorization header.");
     }
 
     var base64String = match[1];
@@ -47,12 +51,12 @@ class AuthorizationBasicParser {
     try {
       decodedCredentials = new String.fromCharCodes(new Base64Decoder().convert(base64String));
     } catch (e) {
-      throw new HTTPResponseException(400, "Improper authorization header.");
+      throw new HTTPResponseException(401, "Improper authorization header.");
     }
 
     var splitCredentials = decodedCredentials.split(":");
     if (splitCredentials.length != 2) {
-      throw new HTTPResponseException(400, "Improper client credentials.");
+      throw new HTTPResponseException(401, "Improper client credentials.");
     }
 
     return new AuthorizationBasicElements()

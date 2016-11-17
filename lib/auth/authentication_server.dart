@@ -188,23 +188,23 @@ class AuthServer<ResourceOwner extends Authenticatable, TokenType extends AuthTo
   Future<AuthCodeType> createAuthCode(String username, String password, String clientID, {int expirationInSeconds: 600}) async {
     AuthClient client = await clientForID(clientID);
     if (client == null) {
-      throw new HTTPResponseException(HttpStatus.UNAUTHORIZED, "Invalid client_id");
+      throw new AuthCodeValidationException(null, "invalid_request");
     }
 
     if (client.redirectURI == null) {
-      throw new HTTPResponseException(HttpStatus.INTERNAL_SERVER_ERROR, "Client does not have a redirect URI");
+      throw new AuthCodeValidationException(client, "invalid_request");
     }
 
     var authenticatable = await delegate.authenticatableForUsername(this, username);
     if (authenticatable == null) {
-      throw new HTTPResponseException(HttpStatus.BAD_REQUEST, "Invalid username");
+      throw new AuthCodeValidationException(client, "access_denied");
     }
 
     var dbSalt = authenticatable.salt;
     var dbPassword = authenticatable.hashedPassword;
     var hash = AuthServer.generatePasswordHash(password, dbSalt);
     if (hash != dbPassword) {
-      throw new HTTPResponseException(HttpStatus.UNAUTHORIZED, "Invalid password");
+      throw new AuthCodeValidationException(client, "access_denied");
     }
 
     AuthCodeType authCode = generateAuthCode(authenticatable.id, client, expirationInSeconds);
@@ -301,4 +301,11 @@ class AuthServer<ResourceOwner extends Authenticatable, TokenType extends AuthTo
 
     return new AuthClient.withRedirectURI(clientID, hashed, salt, redirectURI);
   }
+}
+
+class AuthCodeValidationException implements Exception {
+  AuthCodeValidationException(this.client, this.message);
+
+  String message;
+  AuthClient client;
 }

@@ -6,6 +6,8 @@ enum AuthStrategy {
   resourceOwner,
 
   /// The client strategy requires that the [Request] have a Basic Authorization Client ID and Client secret.
+  ///
+  /// This is not the client credentials flow in OAuth 2.0, but a way to protect a resource by client ID/client secret.
   client
 }
 

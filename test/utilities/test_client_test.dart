@@ -297,7 +297,7 @@ void main() {
       var response = await defaultTestClient.request("/foo").get();
       expect(response, hasBody("text"));
 
-      server.queueResponse(new Response.ok("text", headers: {"Content-Type" : "text/plain"}));
+      server.queueResponse(new Response.ok("text")..contentType = new ContentType("text", "plain"));
       response = await defaultTestClient.request("/foo").get();
       try {
         expect(response, hasBody("foobar"));
@@ -311,11 +311,11 @@ void main() {
     test("Can match JSON Object", () async {
       var defaultTestClient = new TestClient.onPort(4000);
 
-      server.queueResponse(new Response.ok({"foo" : "bar"}, headers: {"Content-Type" : "application/json"}));
+      server.queueResponse(new Response.ok({"foo" : "bar"})..contentType = ContentType.JSON);
       var response = await defaultTestClient.request("/foo").get();
       expect(response, hasBody(isNotNull));
 
-      server.queueResponse(new Response.ok({"foo" : "bar"}, headers: {"Content-Type" : "application/json"}));
+      server.queueResponse(new Response.ok({"foo" : "bar"})..contentType = ContentType.JSON);
       response = await defaultTestClient.request("/foo").get();
       try {
         expect(response, hasBody({"foo" : "notbar"}));
@@ -325,7 +325,7 @@ void main() {
         expect(e.toString(), contains('Body: {"foo":"bar"}'));
       }
 
-      server.queueResponse(new Response.ok({"nocontenttype" : "thatsaysthisisjson"}, headers: {"Content-Type" : "text/plain"}));
+      server.queueResponse(new Response.ok({"nocontenttype" : "thatsaysthisisjson"})..contentType = new ContentType("text", "plain"));
       response = await defaultTestClient.request("/foo").get();
       try {
         expect(response, hasBody(containsPair("nocontenttype", "thatsaysthisisjson")));
